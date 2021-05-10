@@ -26,7 +26,7 @@ allprojects {
 }
 
 subprojects {
-  group = "io.spinnaker.kork"
+  group = "com.salesforce.spinnaker.kork"
 
   repositories {
     jcenter()
@@ -37,6 +37,29 @@ subprojects {
     dependencies {
       annotationProcessor(platform(project(":spinnaker-dependencies")))
       annotationProcessor("org.springframework.boot:spring-boot-configuration-processor")
+    }
+  }
+
+  // Salesforce's nexus is v2.  See
+  // https://help.sonatype.com/repomanager2/staging-releases for background.
+  //
+  // Published artifacts on the local file system are inputs to publishing to
+  // Salesforce nexus.  However, publishToMavenLocal isn't sufficient.  It
+  // appears to work for staging, but then promotion fails.  So, configure a
+  // "real" repository on the local file system.  There aren't many differences
+  // (e.g. maven-metadata-local.xml vs. maven-metadata.xml and no checksum files
+  // for publishToMavenLocal), but apparently they're important.
+  //
+  if (rootProject.hasProperty('repositoryDir')) {
+    afterEvaluate {
+      publishing {
+        repositories {
+          maven {
+            name = 'salesforce'
+            url = repositoryDir
+          }
+        }
+      }
     }
   }
 }
