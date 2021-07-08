@@ -69,6 +69,7 @@ executePipeline(envDef) {
 
   boolean publish = false
   String versionToRelease
+  String gradleVersionOption = ''
   stage('Init') {
     // We need to inspect tags to see what to do.  Something like (from
     // https://www.jenkins.io/doc/pipeline/steps/build-steps-from-json/):
@@ -113,6 +114,7 @@ executePipeline(envDef) {
         publish = true
         // Strip the leading v from the tag
         versionToRelease = releaseTags[0].substring(1)
+        gradleVersionOption = "ORG_GRADLE_PROJECT_version=${versionToRelease}"
         echo "publishing version ${versionToRelease}"
       } else {
         echo "no release tag -- not publishing"
@@ -124,7 +126,11 @@ executePipeline(envDef) {
 
   stage('Build') {
     withCredentials([usernamePassword(credentialsId: 'sfci-nexus', usernameVariable: 'NEXUS_USERNAME', passwordVariable: 'NEXUS_PASSWORD')]) {
-      sh "./gradlew build"
+      // Specifying the version doesn't change what happens here, but it provides a
+      // verison to snyk which makes the output / results easier to digest.  Without one
+      // the version is "unspecified".  Note that the version is still unspecified unless
+      // we're publishing.
+      sh "${gradleVersionOption} ./gradlew build"
     }
   }
 
@@ -137,7 +143,7 @@ executePipeline(envDef) {
       // https://docs.gradle.org/6.0.1/release-notes.html#publication-of-sha256-and-sha512-checksums,
       // don't publish SHA256/SHA512 because salesforce nexus complains that
       // they're not overwriteable.
-      String gradleOptions = "ORG_GRADLE_PROJECT_version=${versionToRelease} ORG_GRADLE_PROJECT_repositoryDir=${workspace}/sfci-target/deploy GRADLE_OPTS='-Dorg.gradle.daemon=false -Xmx2g -Xms2g'"
+      String gradleOptions = "${gradleVersionOption} ORG_GRADLE_PROJECT_repositoryDir=${workspace}/sfci-target/deploy GRADLE_OPTS='-Dorg.gradle.daemon=false -Xmx2g -Xms2g'"
       def result=sh(returnStdout: true, script: "${gradleOptions} ./gradlew publishSpinnakerPublicationToSalesforceRepository -Dorg.gradle.internal.publish.checksums.insecure=true")
 
       println "Staging artifacts"
