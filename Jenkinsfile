@@ -54,6 +54,19 @@ def envDef = [
 env.RELEASE_BRANCHES = ['release-1.21.x-sfcd', 'release-1.23.x-sfcd' ]
 
 executePipeline(envDef) {
+  // Adjust the snyk timeout since scanning takes longer than the default (currently 5
+  // minutes).  From
+  // https://sfcirelease.dop.sfdc.net/job/spinnaker/job/spinnaker-kork-Jenkinsfile/job/kork/job/release-1.23.x-sfcd/2/console
+  // it took ~10.43 minutes:
+  //
+  // 11:40:12    "durationMs": 626065
+  //
+  // so use a bigger number to give some buffer
+  //
+  // Instructions from
+  // https://confluence.internal.salesforce.com/display/public/ZEN/Snyk+CI+Integration#SnykCIIntegration-SnykScancustomarguments
+  env.snykTimeoutInMins = 15
+
   boolean publish = false
   String versionToRelease
   stage('Init') {
