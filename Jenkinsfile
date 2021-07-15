@@ -3,6 +3,8 @@
 @Library('sfci-pipeline-sharedlib@support_gradle') _
 
 import net.sfdc.dci.BuildUtils
+import net.sfdc.dci.GitHubUtils
+import net.sfdc.dci.GusComplianceUtils
 
 // Kubernetes kills the pod that's executing us unless we give it enough memory.  Dynamic
 // resourcing doesn't appear to be enough.  At least
@@ -69,6 +71,7 @@ executePipeline(envDef) {
 
   boolean publish = false
   String versionToRelease
+  String workItem
   String gradleVersionOption = ''
   stage('Init') {
     // We need to inspect tags to see what to do.  Something like (from
@@ -111,6 +114,26 @@ executePipeline(envDef) {
       }
 
       if (releaseTags.size() == 1) {
+        // Make sure the commit has a work item, otherwise we can't make
+        // version-bumping PRs that pass the required checks
+        echo 'looking for work item in commit message'
+        def commitMessage = ""
+        def commitContent = GitHubUtils.getCommit(this, commitSha)
+        if (commitContent.commit) {
+          commitMessage = commitContent.commit.message
+        }
+        if (!commitMessage) {
+          error "no commit message from which to parse work item (sha: ${commitSha}, commitContent: ${commitContent}"
+        }
+        Set<String> workItems = GusComplianceUtils.getAtMentionsOfGusWorkId(commitMessage)
+        if (workItems.isEmpty()) {
+          error "no work item in commit message '${commitMessage}' (sha: ${commitSha}), unable to make valid autobump PR"
+        }
+        // arbitrarily choose a work item from the set
+        workItem = (workItems as List)[0]
+
+        echo "workItem: '${workItem}'"
+
         publish = true
         // Strip the leading v from the tag
         versionToRelease = releaseTags[0].substring(1)
@@ -156,10 +179,42 @@ executePipeline(envDef) {
     }
 
     stage('Dependency bump') {
-      // TODO
-      // - build a bumpdeps docker image and publish it to a salesforce docker registry that's accessible here
-      // - execute it here
-      sh 'echo "creating PRs to bump kork dependency"'
+      echo 'creating PRs to bump kork dependency'
+      String dockerImage = 'dva-registry.internal.salesforce.com/sfci/spinnaker/bumpdeps:latest'
+      def DOCKER_REGISTRY_HOST = 'dva-registry.internal.salesforce.com'
+      def dockerRegistry = "https://${DOCKER_REGISTRY_HOST}"
+      def image = docker.image(dockerImage)
+      docker.withRegistry(dockerRegistry) {
+         image.pull()
+      }
+      withCredentials([usernamePassword(credentialsId: 'sfci-nexus', usernameVariable: 'NEXUS_USERNAME', passwordVariable: 'NEXUS_PASSWORD'),
+                       usernamePassword(credentialsId: 'sfci-git', usernameVariable: 'GIT_USERNAME', passwordVariable: 'GITHUB_OAUTH')]) {
+        def dockerArgs = [
+          '-e NEXUS_USERNAME',
+          '-e NEXUS_PASSWORD',
+          '-e GITHUB_OAUTH'
+        ].join(' ')
+
+        if (!workItem) {
+          error "no work item...can't autobump"
+        }
+        def bumpdepsArgs = [
+          "--work-item ${workItem}",
+          "--ref refs/tags/v$versionToRelease",
+          '--key korkVersion',
+          // assume the branch naming convention in the target repos matches this one
+          "--base-branch ${BuildUtils.getCurrentBranch(this)}",
+          '--repositories clouddriver,echo,fiat,front50,gate,igor,orca,rosco',
+          '--repo-owner spinnaker',
+          '--upstream-owner spinnaker',
+          '--maven-repository-url https://nexus-proxy-prd.soma.salesforce.com/nexus/content/groups/public',
+          '--group-id com.salesforce.spinnaker.kork',
+          '--artifact-id kork-bom', // arbitrary choice of one of the kork artifacts
+          '--github-url https://git.soma.salesforce.com',
+          '--github-api-endpoint https://git.soma.salesforce.com/api/v3'
+          ].join(' ')
+        sh "docker run $dockerArgs $dockerImage $bumpdepsArgs"
+      }
     }
   }
 }
