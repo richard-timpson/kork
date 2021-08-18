@@ -67,7 +67,7 @@ dependencies {
     api("com.google.apis:google-api-services-monitoring:v3-rev477-1.25.0")
     api("com.google.apis:google-api-services-storage:v1-rev141-1.25.0")
     api("com.google.code.findbugs:jsr305:3.0.2")
-    api("com.google.guava:guava:28.2-jre")
+    api("com.google.guava:guava:30.0-jre")
     // JinJava 2.5.3 has a bad bug: https://github.com/HubSpot/jinjava/issues/429
     api("com.hubspot.jinjava:jinjava:2.5.2")
     api("com.jakewharton.retrofit:retrofit1-okhttp3-client:1.1.0")
@@ -113,7 +113,7 @@ dependencies {
     api("com.sun.xml.bind:jaxb-impl:2.3.2")
     api("com.vdurmont:semver4j:3.1.0")
     api("commons-configuration:commons-configuration:1.8")
-    api("commons-io:commons-io:2.5")
+    api("commons-io:commons-io:2.7")
     api("de.danielbechler:java-object-diff:0.95")
     api("de.huxhorn.sulky:de.huxhorn.sulky.ulid:8.2.0")
     api("dev.minutest:minutest:1.13.0")
@@ -148,6 +148,7 @@ dependencies {
     api("org.objenesis:objenesis:2.5.1")
     api("org.pf4j:pf4j:3.2.0")
     api("org.pf4j:pf4j-update:2.3.0")
+    api("org.postgresql:postgresql:42.2.13") // TODO: remove this with upgrade of spring-boot version to 2.2.8 or above
     api("org.springdoc:springdoc-openapi-webmvc-core:${versions.openapi}")
     api("org.springdoc:springdoc-openapi-kotlin:${versions.openapi}")
     api("org.springframework.boot:spring-boot-configuration-processor:${versions.springBoot}")
