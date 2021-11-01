@@ -148,12 +148,21 @@ executePipeline(envDef) {
   }
 
   stage('Build') {
-    withCredentials([usernamePassword(credentialsId: 'sfci-nexus', usernameVariable: 'NEXUS_USERNAME', passwordVariable: 'NEXUS_PASSWORD')]) {
-      // Specifying the version doesn't change what happens here, but it provides a
-      // verison to snyk which makes the output / results easier to digest.  Without one
-      // the version is "unspecified".  Note that the version is still unspecified unless
-      // we're publishing.
-      sh "${gradleVersionOption} ./gradlew build"
+    try {
+      withCredentials([usernamePassword(credentialsId: 'sfci-nexus', usernameVariable: 'NEXUS_USERNAME', passwordVariable: 'NEXUS_PASSWORD')]) {
+        // Specifying the version doesn't change what happens here, but it provides a
+        // verison to snyk which makes the output / results easier to digest.  Without one
+        // the version is "unspecified".  Note that the version is still unspecified unless
+        // we're publishing.
+        //
+        // Specify TESTCONTAINERS_HUB_IMAGE_NAME_PREFIX since testcontainers uses
+        // docker.io by default, which isn't accessible from jenkins.  See
+        // https://www.testcontainers.org/features/image_name_substitution/#automatically-modifying-docker-hub-image-names.
+        sh "${gradleVersionOption} TESTCONTAINERS_HUB_IMAGE_NAME_PREFIX='dva-registry.internal.salesforce.com/sfci/3pp/3pp/docker.io/' ./gradlew build"
+      }
+    } finally {
+      // Not really specific to maven.  This publishes junit test results.
+      mavenPostBuild('**/build/test-results/**/*.xml')
     }
   }
 
