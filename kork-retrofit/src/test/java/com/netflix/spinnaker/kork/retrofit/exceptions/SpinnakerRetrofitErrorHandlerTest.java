@@ -73,6 +73,14 @@ public class SpinnakerRetrofitErrorHandlerTest {
   @DisplayName(
       "test to verify that different types of converters will result in successful deserialization of the response")
   @ParameterizedTest(name = "{index} ==> Type of Converter = {0}")
+  // Test the different converters used to deserialize the response body to the
+  // SpinnakerServerException.RetrofitErrorResponseBody class:
+  // The JacksonConverter constructed without an ObjectMapper is used in Clouddriver's RestAdapter
+  // to communicate with Front50Service
+  // The JacksonConverter constructed with an ObjectMapper is used in Rosco's RestAdapter to
+  // communicate with Clouddriver
+  // The GSONConverter is the default converter used by Retrofit if no converter is set when
+  // building out the RestAdapter
   @ValueSource(
       strings = {"Default_GSONConverter", "JacksonConverter", "JacksonConverterWithObjectMapper"})
   public void testNotFoundWithExtraField(String retrofitConverter) throws Exception {
@@ -104,6 +112,15 @@ public class SpinnakerRetrofitErrorHandlerTest {
         new MockResponse()
             .setBody(responseBodyString)
             .setResponseCode(HttpStatus.NOT_FOUND.value()));
+    // If the converter can not deserialize the response body to the
+    // SpinnakerServerException.RetrofitErrorResponseBody
+    // class, then a RuntimeException will be thrown with a ConversionException nested inside.
+    //
+    // java.lang.RuntimeException:
+    //     retrofit.converter.ConversionException:
+    //         com.fasterxml.jackson.databind.exc.UnrecognizedPropertyException: Unrecognized field
+    // "..."
+    //
     SpinnakerHttpException notFoundException =
         assertThrows(SpinnakerHttpException.class, retrofitServiceTestConverter::getFoo);
     assertNotNull(notFoundException.getRetryable());
