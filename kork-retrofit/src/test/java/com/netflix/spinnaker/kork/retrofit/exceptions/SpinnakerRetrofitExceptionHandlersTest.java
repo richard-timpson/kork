@@ -26,6 +26,7 @@ import ch.qos.logback.classic.LoggerContext;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
 import com.netflix.spinnaker.config.ErrorConfiguration;
+import com.netflix.spinnaker.config.RetrofitErrorConfiguration;
 import java.net.URI;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -35,11 +36,12 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.boot.web.server.LocalServerPort;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -58,6 +60,7 @@ import retrofit.mime.TypedString;
     webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
     classes = {
       ErrorConfiguration.class,
+      RetrofitErrorConfiguration.class,
       SpinnakerRetrofitExceptionHandlersTest.TestControllerConfiguration.class
     })
 @TestPropertySource(properties = {"retrofit.enabled = false"})
@@ -173,7 +176,8 @@ class SpinnakerRetrofitExceptionHandlersTest {
         .collect(Collectors.toList());
   }
 
-  @SpringBootApplication
+  @Configuration
+  @EnableAutoConfiguration
   static class TestControllerConfiguration {
     @EnableWebSecurity
     class WebSecurityConfig extends WebSecurityConfigurerAdapter {
