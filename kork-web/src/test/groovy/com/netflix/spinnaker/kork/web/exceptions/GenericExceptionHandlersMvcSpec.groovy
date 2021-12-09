@@ -76,6 +76,14 @@ class GenericExceptionHandlersMvcSpec extends Specification {
     entity.statusCode == HttpStatus.BAD_REQUEST
   }
 
+  def "should map IllegalArgumentException as 400"() {
+    when:
+    def entity = restTemplate.getForEntity("http://localhost:$port/test-controller/illegalArgumentException", HashMap.class)
+
+    then: "status is 400"
+    entity.statusCode == HttpStatus.BAD_REQUEST
+  }
+
   def "should handle IllegalStateException"() {
     when:
     def entity = restTemplate.getForEntity("http://localhost:$port/test-controller/illegalStateException", HashMap.class)
@@ -127,6 +135,11 @@ class GenericExceptionHandlersMvcSpec extends Specification {
 
     @GetMapping("/path1")
     void get(@RequestParam("param") String param) {
+    }
+
+    @GetMapping("/illegalArgumentException")
+    void illegalArgumentException() {
+      throw new IllegalArgumentException()
     }
 
     @GetMapping("/illegalStateException")
