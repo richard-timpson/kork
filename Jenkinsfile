@@ -16,7 +16,8 @@ import net.sfdc.dci.GusComplianceUtils
 // container or 'directly' in a java11 container, without spinnaker-build, so
 // use large.
 def envDef = [
-  buildImage: 'ops0-artifactrepo1-0-prd.data.sfdc.net/dci/centos7-sfci-jdk11-maven',
+  // See https://confluence.internal.salesforce.com/display/public/ZEN/What+are+the+build+docker+images+managed+by+SFCI
+  buildImage: '331455399823.dkr.ecr.us-east-2.amazonaws.com/sfci/sfci/centos7-sfci-jdk11-maven:397fbce',
   disableConcurrentBuilds: true,
   flavor: 'large',
   useDynamicResourcing: false
