@@ -269,7 +269,11 @@ public class SqlTestUtil {
                     && !table.getName().equals(configuration.getDatabaseChangeLogLockTableName()))
         .forEach(
             table -> {
-              context.truncate(table.getName()).execute();
+              if (context.dialect() == SQLDialect.POSTGRES) {
+                context.truncate(table.getName()).cascade().execute();
+              } else {
+                context.truncate(table.getName()).execute();
+              }
             });
     if (context.dialect() == SQLDialect.MYSQL) {
       context.execute("set foreign_key_checks=1");
