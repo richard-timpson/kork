@@ -36,6 +36,7 @@ dependencies {
 
   compileOnly "org.springframework.boot:spring-boot-starter-actuator"
 
+  testImplementation project(":kork-test")
   testImplementation "ch.qos.logback:logback-classic"
   testImplementation "ch.qos.logback:logback-core"
   testImplementation "org.spockframework:spock-core"
