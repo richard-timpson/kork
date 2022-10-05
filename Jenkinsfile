@@ -180,12 +180,24 @@ executePipeline(envDef) {
       def result=sh(returnStdout: true, script: "${gradleOptions} ./gradlew publishSpinnakerPublicationToSalesforceRepository -Dorg.gradle.internal.publish.checksums.insecure=true")
 
       println "Staging artifacts"
-      mavenStageArtifacts([version: versionToRelease])
+      def groupId = 'com.salesforce.spinnaker.kork'
+
+      // this isn't a "real" artifact ID since there are multiple modules in
+      // kork and each one has its own.  mavenStageArtifacts uses it (along with
+      // the version) to build an identifying tag in the staging repo.
+      def artifactId = 'kork'
+      mavenStageArtifacts([version: versionToRelease,
+                           groupId: groupId,
+                           artifactId: artifactId])
 
       println "Promoting artifacts"
       // artifactPath is for logging...and difficult to get from build.gradle, so hard
       // code it.
-      mavenPromoteArtifacts([version: versionToRelease, artifactPath: 'com.salesforce.spinnaker.kork'])
+
+      // This is a big encapsulation violation...build the tag name that matches
+      // what mavenStageArtifacts uses.
+      def tagName = groupId + '-' + artifactId + '-' + versionToRelease
+      mavenPromoteArtifacts([version: versionToRelease, artifactPath: 'com.salesforce.spinnaker.kork', tagname: tagName])
     }
 
     stage('Dependency bump') {
