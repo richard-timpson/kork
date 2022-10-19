@@ -38,8 +38,6 @@ stages:
     - publish-jar:
         artifacts:
           - groupId: "com.salesforce.spinnaker.kork"
-            artifactId: "kork-bom"
-          - groupId: "com.salesforce.spinnaker.kork"
             artifactId: "spinnaker-dependencies"
           - groupId: "com.salesforce.spinnaker.kork"
             artifactId: "kork-actuator"
