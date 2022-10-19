@@ -21,8 +21,76 @@ plugins {
   id 'org.jetbrains.kotlin.plugin.allopen' version "$kotlinVersion" apply false
 }
 
+def versionFromGitTag = getVersionFromGitTag()
 allprojects {
   apply plugin: "io.spinnaker.project"
+
+  version = versionFromGitTag
+}
+
+// I don't know of a way to run shell commands in a SFCI Managed V2 step such
+// that I can then pass some information from those commands to other ones.  For
+// example, looking for git tags to parse the version, and setting the
+// ORG_GRADLE_PROJECT_version environment variable to use when invoking gradle.
+// So, determine the version here directly.
+
+// Since SFCI Managed V2's publish-jar step only has things to publish if we put
+// them in maven local, only do that if we've got a version specified (and we're
+// running in CI, to avoid affecting local builds).
+
+// Adding publishToMavenLocal via e.g.
+//
+// if (isCI() && (version != "unspecified")) {
+//   tasks.build.configure { finalizedBy "publishToMavenLocal" }
+// }
+//
+// results in:
+//
+// Could not determine the dependencies of task ':build'.
+// > Task with path 'publishToMavenLocal' not found in root project 'kork'.
+//
+// So instead, assume .strata.yml adds publishToMavenLocal, and then disable the
+// task if the version is unspecified.
+gradle.taskGraph.whenReady { taskGraph ->
+  logger.quiet("processing task graph")
+
+  // CHANGE_ID isn't documented at
+  // https://confluence.internal.salesforce.com/display/public/ZEN/SFCI+Managed+V2+-+Environment+Variables,
+  // but was the basis for determining PR builds in sfci-pipeline-sharedlib (see
+  // e.g. https://git.soma.salesforce.com/dci/sfci-pipeline-sharedlib/blob/1eb7490c8f30abe0a9591e3b8510d7bea3a0507f/src/net/sfdc/dci/v1/BuildUtilsImpl.groovy#L110-L112.
+  // and is present again in sfci-managed-preprocessor:
+  // https://git.soma.salesforce.com/sfci/sfci-managed-preprocessor/blob/a5d2afc6798220db4052f4dd81af3a4ffb434105/src/transformer/Util.js#L76
+  def changeId = System.getenv('CHANGE_ID')?.trim()
+  logger.quiet("changeId: '$changeId'")
+
+  // Don't publish snapshot versions outside of PRs
+  def ignoreSnapshot = isSnapshot(version) && !isPR()
+
+  // Don't publish fixed versions from PRs
+  def ignoreFixedVersion = !isSnapshot(version) && isPR()
+
+  def removePublish = isCI() && ((version == "unspecified") || ignoreSnapshot || ignoreFixedVersion)
+  logger.quiet("isPR: ${isPR()}")
+  logger.quiet("isSnapshot: ${isSnapshot(version)}")
+  logger.quiet("ignoreSnapshot: ${ignoreSnapshot}")
+  logger.quiet("ignoreFixedVersion: ${ignoreFixedVersion}")
+  logger.quiet("removePublish: ${removePublish}")
+
+  if (removePublish) {
+    // Note that it's not enough to remove publishToMavenLocal.  From
+    // https://docs.gradle.org/6.6.1/userguide/publishing_maven.html#publishing_maven:tasks,
+    // there are other publishing tasks that put things in the local maven repo.
+    // Specifically publish<PubName>PublicationToMavenLocal, so for us, disable
+    // publishSpinnakerPublicationToMavenLocal as well.
+    logger.quiet("looking for publish tasks to disable")
+    def tasks = taskGraph.allTasks
+    def publishToMavenLocalTasks = tasks.findAll { it.name == 'publishToMavenLocal' }
+    def publishSpinnakerPublicationToMavenLocalTasks = tasks.findAll { it.name == 'publishSpinnakerPublicationToMavenLocal' }
+    (publishToMavenLocalTasks + publishSpinnakerPublicationToMavenLocalTasks).each { Task publishTask ->
+      logger.quiet("disabling publish task: '${publishTask.path}'")
+      publishTask.enabled = false
+    }
+  }
 }
 
 subprojects {
@@ -35,27 +103,68 @@ subprojects {
       annotationProcessor("org.springframework.boot:spring-boot-configuration-processor")
     }
   }
+}
 
-  // Salesforce's nexus is v2.  See
-  // https://help.sonatype.com/repomanager2/staging-releases for background.
-  //
-  // Published artifacts on the local file system are inputs to publishing to
-  // Salesforce nexus.  However, publishToMavenLocal isn't sufficient.  It
-  // appears to work for staging, but then promotion fails.  So, configure a
-  // "real" repository on the local file system.  There aren't many differences
-  // (e.g. maven-metadata-local.xml vs. maven-metadata.xml and no checksum files
-  // for publishToMavenLocal), but apparently they're important.
-  //
-  if (rootProject.hasProperty('repositoryDir')) {
-    afterEvaluate {
-      publishing {
-        repositories {
-          maven {
-            name = 'salesforce'
-            url = repositoryDir
-          }
-        }
-      }
-    }
+task printVersion {
+  doLast {
+    println "version is '$version'"
   }
+}
+
+import com.salesforce.spinnaker.helper.CommandUtil
+
+private boolean isCI() {
+  def jenkinsURL = System.getenv('JENKINS_URL')?.trim()
+  logger.quiet("jenkinsURL: '$jenkinsURL'")
+  jenkinsURL
+}
+
+private boolean isPR() {
+  def changeId = System.getenv('CHANGE_ID')?.trim()
+  changeId
+}
+
+private boolean isSnapshot(String version) {
+  version.endsWith('-SNAPSHOT')
+}
+
+private String getVersionFromGitTag() {
+  // This is unfortunate.  git isn't available in the docker image used for the
+  // gradle-setup step in SFCI Managed v2.  It turns out that gradle-setup isn't
+  // necessary for publishing, but go ahead and handle missing git anyway.
+  //
+  // No need to specify ignoreFailure as true since we don't get that far.
+  try {
+    // git version is an arbitrary git command, that tells us whether the git
+    // executable is present/functional.
+    CommandUtil.executeOneCommand(['git', 'version'], project.rootDir)
+  } catch (IOException e) {
+    logger.quiet("exception invoking git version: '${e.message}'")
+    logger.quiet("unable to execute git, treating version as unspecified")
+    return "unspecified"
+  }
+
+  // Only fetch tags on CI to avoid slowing down local builds.
+  if (isCI()) {
+    // This can take some time.  Give 60 seconds.  30 seconds has failed.
+    CommandUtil.executeOneCommand(['git', 'fetch', '--tags', '--quiet'], project.rootDir, null /* extraEnv */, 60000)
+  }
+
+  def commitSha = CommandUtil.executeOneCommand(['git', 'rev-parse', 'HEAD'], project.rootDir).trim()
+  def existingTags = CommandUtil.executeOneCommand(['git', 'tag', '-l' ,'--points-at', commitSha], project.rootDir).trim().tokenize('\n')
+  logger.debug("existingTags is '${existingTags}'")
+  def releaseTags = existingTags.findAll { tag -> tag ==~ /v[0-9]+.[0-9]+.[0-9]+(-SNAPSHOT)?/ }
+  logger.debug("releaseTags is '${releaseTags}'")
+  if (releaseTags.size() == 0) {
+    logger.quiet("no tags -- version unspecified")
+    return "unspecified"
+  }
+  if (releaseTags.size() > 1) {
+    throw new GradleScriptException("more than one release tag (${releaseTags})...not sure which one to use", null /* cause */)
+  }
+
+  // Strip the leading v from the tag
+  def versionFromTag = releaseTags[0].substring(1)
+  logger.quiet("versionFromGitTag: '${versionFromTag}'")
+  return versionFromTag
 }

@@ -1,0 +1,145 @@
+---
+# From https://confluence.internal.salesforce.com/display/public/ZEN/SFCI+Managed+V2+Getting+Started and https://confluence.internal.salesforce.com/display/public/ZEN/Gradle
+
+# It's not currently possible to customize / conditionally run the publish-jar
+# step (see
+# https://salesforce-internal.slack.com/archives/C01PXRL75FD/p1665023763994179).
+# but, it skips artifacts that aren't present in the maven local repo.  So,
+# there's logic in build.gradle to skip publishing unless there's an appropriate
+# version tag.
+global:
+  email-reply-to: sfcdupstream@salesforce.com
+  email-only-last-committer-on-dev-branch: true
+  jenkins-environment: true # so gradle can distinguish local builds from CI via JENKINS_URL
+  production-branches:
+    - release-1.23.x-sfcd
+stages:
+  build:
+    # No need for gradle-setup here because docker-spinnaker-build
+    # does all the necessary setup.  Using
+    #
+    # -Dmaven.repo.local=/cix/tmp/.strata/.m2/repository
+    #
+    # in the gradle invocation below is sufficient to get the artifacts where
+    # they need to be for the publish-jar step to install them.
+    - step:
+        name: gradle-build
+        image: dva-registry.internal.salesforce.com/sfci/sfcd/docker-spinnaker-build/sfcd/spinnaker-build:latest
+        environment:
+          # opa policy forbids binding to /var/run/docker.sock.  See https://git.soma.salesforce.com/dva-strata/jenkinsfiles-shared-libraries/pull/1414.
+          - name: TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE
+            value: /var/run/docker-secondary.sock
+          - name: TESTCONTAINERS_HUB_IMAGE_NAME_PREFIX
+            value: dva-registry.internal.salesforce.com/sfci/3pp/3pp/docker.io/
+        commands:
+          # Logic in gradle removes publishToMavenLocal if there's no version tag.
+          - gradleenv auto && ./gradlew -Dmaven.repo.local=/cix/tmp/.strata/.m2/repository build publishToMavenLocal --stacktrace
+  publish:
+    - publish-jar:
+        artifacts:
+          - groupId: "com.salesforce.spinnaker.kork"
+            artifactId: "kork-bom"
+          - groupId: "com.salesforce.spinnaker.kork"
+            artifactId: "spinnaker-dependencies"
+          - groupId: "com.salesforce.spinnaker.kork"
+            artifactId: "kork-actuator"
+          - groupId: "com.salesforce.spinnaker.kork"
+            artifactId: "kork-annotations"
+          - groupId: "com.salesforce.spinnaker.kork"
+            artifactId: "kork-api"
+          - groupId: "com.salesforce.spinnaker.kork"
+            artifactId: "kork-artifacts"
+          - groupId: "com.salesforce.spinnaker.kork"
+            artifactId: "kork-aws"
+          - groupId: "com.salesforce.spinnaker.kork"
+            artifactId: "kork-bom"
+          - groupId: "com.salesforce.spinnaker.kork"
+            artifactId: "kork-cloud-config-server"
+          - groupId: "com.salesforce.spinnaker.kork"
+            artifactId: "kork-config"
+          - groupId: "com.salesforce.spinnaker.kork"
+            artifactId: "kork-core"
+          - groupId: "com.salesforce.spinnaker.kork"
+            artifactId: "kork-core-tck"
+          - groupId: "com.salesforce.spinnaker.kork"
+            artifactId: "kork-credentials"
+          - groupId: "com.salesforce.spinnaker.kork"
+            artifactId: "kork-credentials-api"
+          - groupId: "com.salesforce.spinnaker.kork"
+            artifactId: "kork-eureka"
+          - groupId: "com.salesforce.spinnaker.kork"
+            artifactId: "kork-exceptions"
+          - groupId: "com.salesforce.spinnaker.kork"
+            artifactId: "kork-expressions"
+          - groupId: "com.salesforce.spinnaker.kork"
+            artifactId: "kork-jedis"
+          - groupId: "com.salesforce.spinnaker.kork"
+            artifactId: "kork-jedis-test"
+          - groupId: "com.salesforce.spinnaker.kork"
+            artifactId: "kork-moniker"
+          - groupId: "com.salesforce.spinnaker.kork"
+            artifactId: "kork-plugins"
+          - groupId: "com.salesforce.spinnaker.kork"
+            artifactId: "kork-plugins-api"
+          - groupId: "com.salesforce.spinnaker.kork"
+            artifactId: "kork-plugins-tck"
+          - groupId: "com.salesforce.spinnaker.kork"
+            artifactId: "kork-plugins-spring-api"
+          - groupId: "com.salesforce.spinnaker.kork"
+            artifactId: "kork-proto"
+          - groupId: "com.salesforce.spinnaker.kork"
+            artifactId: "kork-pubsub"
+          - groupId: "com.salesforce.spinnaker.kork"
+            artifactId: "kork-pubsub-aws"
+          - groupId: "com.salesforce.spinnaker.kork"
+            artifactId: "kork-runtime"
+          - groupId: "com.salesforce.spinnaker.kork"
+            artifactId: "kork-secrets"
+          - groupId: "com.salesforce.spinnaker.kork"
+            artifactId: "kork-secrets-aws"
+          - groupId: "com.salesforce.spinnaker.kork"
+            artifactId: "kork-secrets-gcp"
+          - groupId: "com.salesforce.spinnaker.kork"
+            artifactId: "kork-security"
+          - groupId: "com.salesforce.spinnaker.kork"
+            artifactId: "kork-retrofit"
+          - groupId: "com.salesforce.spinnaker.kork"
+            artifactId: "kork-retrofit2"
+          - groupId: "com.salesforce.spinnaker.kork"
+            artifactId: "kork-sql"
+          - groupId: "com.salesforce.spinnaker.kork"
+            artifactId: "kork-sql-test"
+          - groupId: "com.salesforce.spinnaker.kork"
+            artifactId: "kork-stackdriver"
+          - groupId: "com.salesforce.spinnaker.kork"
+            artifactId: "kork-swagger"
+          - groupId: "com.salesforce.spinnaker.kork"
+            artifactId: "kork-telemetry"
+          - groupId: "com.salesforce.spinnaker.kork"
+            artifactId: "kork-test"
+          - groupId: "com.salesforce.spinnaker.kork"
+            artifactId: "kork-tomcat"
+          - groupId: "com.salesforce.spinnaker.kork"
+            artifactId: "kork-web"
+    - step:
+        name: bump-dependencies
+        image: dva-registry.internal.salesforce.com/sfci/spinnaker/bumpdeps:latest
+        environment:
+          - name: NEXUS_USERNAME
+          - name: NEXUS_PASSWORD
+          - name: GITHUB_OAUTH
+        commands:
+          # for GITHUB_OAUTH
+          - source $publish_secrets_file_path
+          - >-
+            /salesforce-bumpdeps.sh
+            --key korkVersion
+            --base-branch release-1.23.x-sfcd
+            --repositories clouddriver,echo,fiat,front50,gate,igor,orca,rosco
+            --repo-owner spinnaker
+            --upstream-owner spinnaker
+            --maven-repository-url https://nexus-proxy-prd.soma.salesforce.com/nexus/content/groups/public
+            --group-id com.salesforce.spinnaker.kork
+            --artifact-id kork-bom
+            --github-url https://git.soma.salesforce.com
+            --github-api-endpoint https://git.soma.salesforce.com/api/v3
