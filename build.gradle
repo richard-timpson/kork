@@ -25,7 +25,9 @@ def versionFromGitTag = getVersionFromGitTag()
 allprojects {
   apply plugin: "io.spinnaker.project"
 
-  version = versionFromGitTag
+  if (isCI()) {
+    version = versionFromGitTag
+  }
 }
 
 // I don't know of a way to run shell commands in a SFCI Managed V2 step such
