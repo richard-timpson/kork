@@ -125,7 +125,6 @@ dependencies {
     api("de.huxhorn.sulky:de.huxhorn.sulky.ulid:8.2.0")
     api("dev.minutest:minutest:1.13.0")
     api("io.mockk:mockk:1.10.0")
-    api("io.springfox:springfox-swagger-ui:${versions.springfoxSwagger}")
     api("io.springfox:springfox-swagger2:${versions.springfoxSwagger}")
     api("io.swagger:swagger-annotations:${versions.swagger}")
     api("javax.annotation:javax.annotation-api:1.3.2")
