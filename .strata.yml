@@ -8,7 +8,6 @@
 # there's logic in build.gradle to skip publishing unless there's an appropriate
 # version tag.
 global:
-  preprocessor-tag: jenkins-sfci-sfci-managed-preprocessor-PR-416-13-itest # See https://git.soma.salesforce.com/sfci/sfci-managed-preprocessor/pull/416
   email-reply-to: sfcdupstream@salesforce.com
   email-only-last-committer-on-dev-branch: true
   jenkins-environment: true # so gradle can distinguish local builds from CI via JENKINS_URL
@@ -37,7 +36,7 @@ stages:
           - gradleenv auto && ./gradlew -Dmaven.repo.local=/cix/tmp/.strata/.m2/repository build publishToMavenLocal --stacktrace
   publish:
     - publish-jar:
-        publish-wildcard-artifacts: false # See https://git.soma.salesforce.com/sfci/sfci-managed-preprocessor/pull/416
+        exact-artifact-match: true # See https://git.soma.salesforce.com/sfci/sfci-managed-preprocessor/pull/416
         artifacts:
           - groupId: "com.salesforce.spinnaker.kork"
             artifactId: "spinnaker-dependencies"
