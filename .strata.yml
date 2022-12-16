@@ -130,6 +130,12 @@ stages:
         commands:
           # for GITHUB_OAUTH
           - source $publish_secrets_file_path
+          # Use --ignore-git-user-config since SFCI has a URL substitution in
+          # /root/config that causes jgit to fail with errors like
+          #
+          # Caused by: org.eclipse.jgit.errors.NotSupportedException: URI not supported: https:///<username>:@git.soma.salesforce.com//spinnaker/clouddriver
+          #
+          # otherwise.
           - >-
             /salesforce-bumpdeps.sh
             --key korkVersion
@@ -142,3 +148,4 @@ stages:
             --artifact-id kork-bom
             --github-url https://git.soma.salesforce.com
             --github-api-endpoint https://git.soma.salesforce.com/api/v3
+            --ignore-git-user-config
