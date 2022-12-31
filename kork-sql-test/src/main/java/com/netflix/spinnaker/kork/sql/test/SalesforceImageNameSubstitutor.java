@@ -32,7 +32,7 @@ public class SalesforceImageNameSubstitutor extends ImageNameSubstitutor {
 
   /** An internal-to-Salesforce mysql docker image */
   private static final DockerImageName SALESFORCE_MYSQL =
-      DockerImageName.parse("dva-registry.internal.salesforce.com/dva/sfcd/mysql:24");
+      DockerImageName.parse("dva-registry.internal.salesforce.com/sfci/sfcd/docker-mysql/sfcd/mysql:24");
 
   @Override
   public DockerImageName apply(DockerImageName original) {
