@@ -1,4 +1,4 @@
-#GUSINFO:SFCD Upstream, SFCD Upstream
+#GUSINFO:SFCD Spinnaker Product, SFCD Spinnaker Product
 * @spinnaker/sig-platform
 kork-artifacts.* @spinnaker/sig-spin-as-code
 kork-aws.* @spinnaker/sig-aws
