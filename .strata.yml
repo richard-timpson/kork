@@ -33,7 +33,23 @@ stages:
             value: dva-registry.internal.salesforce.com/sfci/3pp/3pp/docker.io/
         commands:
           # Logic in gradle removes publishToMavenLocal if there's no version tag.
-          - gradleenv auto && ./gradlew -Dmaven.repo.local=/cix/tmp/.strata/.m2/repository build publishToMavenLocal --stacktrace
+          - GRADLE_RESULT=0; gradleenv auto && ./gradlew -Dmaven.repo.local=/cix/tmp/.strata/.m2/repository build publishToMavenLocal --stacktrace || GRADLE_RESULT=$?
+          - echo "GRADLE_RESULT is $GRADLE_RESULT"
+          # See https://confluence.internal.salesforce.com/display/public/ZEN/SFCI+Managed+V2+-+ResultNG+Integration for background on publishing test results
+          - mkdir -p /cix/tmp/resultng/results/ /cix/tmp/resultng/junitxml
+          - find . -name "TEST-*.xml" -exec cp {} /cix/tmp/resultng/junitxml/ \;
+          # Store the gradle result somewhere a subsequent step can get to it, so we can both publish results and fail the build if gradle fails.
+          - echo $GRADLE_RESULT >/cix/tmp/gradle-result
+    - resultng-transform:
+        gus-scrum-team-name: "SFCD Spinnaker Product"
+    - resultng-publish
+    - step:
+        name: gradle-result
+        image: dva-registry.internal.salesforce.com/sfci/sfcd/docker-spinnaker-build/sfcd/spinnaker-build:latest
+        commands:
+          - GRADLE_RESULT=$(cat /cix/tmp/gradle-result)
+          - echo "GRADLE_RESULT is $GRADLE_RESULT"
+          - exit $GRADLE_RESULT
   publish:
     - publish-jar:
         exact-artifact-match: true # See https://git.soma.salesforce.com/sfci/sfci-managed-preprocessor/pull/416
