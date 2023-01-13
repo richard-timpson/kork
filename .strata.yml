@@ -5,8 +5,8 @@
 # step (see
 # https://salesforce-internal.slack.com/archives/C01PXRL75FD/p1665023763994179).
 # but, it skips artifacts that aren't present in the maven local repo.  So,
-# there's logic in build.gradle to skip publishing unless there's an appropriate
-# version tag.
+# there's logic here to skip publishing unless there's an appropriate version
+# tag.
 global:
   email-reply-to: sfcdupstream@salesforce.com
   email-only-last-committer-on-dev-branch: true
@@ -23,6 +23,11 @@ stages:
     # in the gradle invocation below is sufficient to get the artifacts where
     # they need to be for the publish-jar step to install them.
     - step:
+        name: determine-version-from-git-tag
+        image: dva-registry.internal.salesforce.com/sfci/sfcd/docker-spinnaker-build/sfcd/spinnaker-build:latest
+        commands:
+          - ./version-from-git-tag.sh >/cix/tmp/version-env-vars
+    - step:
         name: gradle-build
         image: dva-registry.internal.salesforce.com/sfci/sfcd/docker-spinnaker-build/sfcd/spinnaker-build:latest
         environment:
@@ -32,8 +37,14 @@ stages:
           - name: TESTCONTAINERS_HUB_IMAGE_NAME_PREFIX
             value: dva-registry.internal.salesforce.com/sfci/3pp/3pp/docker.io/
         commands:
-          # Logic in gradle removes publishToMavenLocal if there's no version tag.
-          - GRADLE_RESULT=0; gradleenv auto && ./gradlew -Dmaven.repo.local=/cix/tmp/.strata/.m2/repository build publishToMavenLocal --stacktrace || GRADLE_RESULT=$?
+          # for ORG_GRADLE_PROJECT_version
+          - source /cix/tmp/version-env-vars
+          - |
+            GRADLE_TASKS="build"
+            if [ -n "$ORG_GRADLE_PROJECT_version" ]; then
+              GRADLE_TASKS="${GRADLE_TASKS} publishToMavenLocal"
+            fi
+          - GRADLE_RESULT=0; gradleenv auto && ./gradlew -Dmaven.repo.local=/cix/tmp/.strata/.m2/repository ${GRADLE_TASKS} --stacktrace || GRADLE_RESULT=$?
           - echo "GRADLE_RESULT is $GRADLE_RESULT"
           # See https://confluence.internal.salesforce.com/display/public/ZEN/SFCI+Managed+V2+-+ResultNG+Integration for background on publishing test results
           - mkdir -p /cix/tmp/resultng/results/ /cix/tmp/resultng/junitxml
@@ -143,9 +154,12 @@ stages:
           - name: NEXUS_USERNAME
           - name: NEXUS_PASSWORD
           - name: GITHUB_OAUTH
+          - name: BUMPDEPS_VERSION
         commands:
           # for GITHUB_OAUTH
           - source $publish_secrets_file_path
+          # for BUMPDEPS_VERSION
+          - source /cix/tmp/version-env-vars
           # Use --ignore-git-user-config since SFCI has a URL substitution in
           # /root/config that causes jgit to fail with errors like
           #
