@@ -36,6 +36,7 @@ stages:
             value: /var/run/docker-secondary.sock
           - name: TESTCONTAINERS_HUB_IMAGE_NAME_PREFIX
             value: dva-registry.internal.salesforce.com/sfci/3pp/3pp/docker.io/
+          - name: ORG_GRADLE_PROJECT_version
         commands:
           # for ORG_GRADLE_PROJECT_version
           - source /cix/tmp/version-env-vars
