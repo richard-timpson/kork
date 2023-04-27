@@ -16,10 +16,12 @@
 
 package com.netflix.spinnaker.kork.retrofit.exceptions;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -157,6 +159,26 @@ public class SpinnakerRetrofitErrorHandlerTest {
     SpinnakerRetrofitErrorHandler handler = SpinnakerRetrofitErrorHandler.getInstance();
     Throwable throwable = handler.handleError(retrofitError);
     Assert.assertEquals(message, throwable.getMessage());
+  }
+
+  @Test
+  public void testChainSpinnakerException_SpinnakerNetworkException() {
+    SpinnakerRetrofitErrorHandler handler = SpinnakerRetrofitErrorHandler.getInstance();
+
+    String originalMessage = "original message";
+    String newMessage = "new message";
+
+    IOException originalException = new IOException(originalMessage);
+    RetrofitError retrofitError = RetrofitError.networkError("http://localhost", originalException);
+
+    Throwable newException =
+        handler.handleError(
+            retrofitError,
+            (exception) -> String.format("%s: %s", newMessage, exception.getMessage()));
+
+    assertTrue(newException instanceof SpinnakerNetworkException);
+    assertEquals("new message: original message", newException.getMessage());
+    assertEquals(originalMessage, newException.getCause().getMessage());
   }
 
   interface RetrofitService {
