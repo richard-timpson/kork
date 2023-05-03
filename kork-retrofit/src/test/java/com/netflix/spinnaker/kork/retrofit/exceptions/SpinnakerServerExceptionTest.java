@@ -25,6 +25,8 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 import retrofit.RetrofitError;
 import retrofit.client.Response;
+import retrofit.converter.JacksonConverter;
+import retrofit.mime.TypedString;
 
 public class SpinnakerServerExceptionTest {
   private static final String CUSTOM_MESSAGE = "custom message";
@@ -73,5 +75,25 @@ public class SpinnakerServerExceptionTest {
       assertEquals(CUSTOM_MESSAGE, newException.getMessage());
       assertEquals(e, newException.getCause());
     }
+  }
+
+  @Test
+  public void testSpinnakerServerException_JsonParsingError() {
+    Response response =
+        new Response(
+            "http://localhost",
+            404,
+            "some reason",
+            List.of(),
+            new TypedString("<html> this is an html tag </html>"));
+    ;
+    RetrofitError error =
+        RetrofitError.httpError("http://localhost", response, new JacksonConverter(), String.class);
+
+    SpinnakerServerException exception = new SpinnakerServerException(error);
+
+    // the exception message comes from the retrofit response status + reason
+    String expectedMessage = "404 some reason";
+    assertEquals(expectedMessage, exception.getMessage());
   }
 }

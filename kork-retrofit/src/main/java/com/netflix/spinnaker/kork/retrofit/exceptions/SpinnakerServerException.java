@@ -42,10 +42,22 @@ public class SpinnakerServerException extends SpinnakerException {
    */
   public SpinnakerServerException(RetrofitError e) {
     super(e.getCause());
-    RetrofitErrorResponseBody body =
-        (RetrofitErrorResponseBody) e.getBodyAs(RetrofitErrorResponseBody.class);
-    this.rawMessage =
-        Optional.ofNullable(body).map(RetrofitErrorResponseBody::getMessage).orElse(e.getMessage());
+    String rawMessageTemp;
+    try {
+      RetrofitErrorResponseBody body =
+          (RetrofitErrorResponseBody) e.getBodyAs(RetrofitErrorResponseBody.class);
+      rawMessageTemp =
+          Optional.ofNullable(body)
+              .map(RetrofitErrorResponseBody::getMessage)
+              .orElse(e.getMessage());
+    } catch (RuntimeException exception) {
+      // it's important that we set this to the retrofit error message, and not the runtime
+      // exception message.
+      // we don't want rawMessageTemp = exception.getMessage();
+      // We effectively want to discard the runtime exception.
+      rawMessageTemp = e.getMessage();
+    }
+    this.rawMessage = rawMessageTemp;
   }
 
   /**
